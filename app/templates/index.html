@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polymarket 聪明钱监控</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">🐋</span>
+                <h1>Polymarket 聪明钱监控</h1>
+            </div>
+            <div class="status-badge" id="status-badge">
+                <span class="status-dot"></span>
+                <span class="status-text">检测中...</span>
+            </div>
+        </header>
+
+        <!-- 主内容 -->
+        <main class="main-content">
+            <!-- Telegram 配置卡片 -->
+            <section class="card">
+                <div class="card-header">
+                    <h2>📱 Telegram 配置</h2>
+                    <button class="btn btn-sm" id="btn-test-tg">测试连接</button>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label for="tg-token">Bot Token</label>
+                        <input type="password" id="tg-token" placeholder="输入 Telegram Bot Token">
+                        <button class="btn-icon" onclick="togglePassword('tg-token')">👁</button>
+                    </div>
+                    <div class="form-group">
+                        <label for="tg-chat-id">Chat ID</label>
+                        <input type="text" id="tg-chat-id" placeholder="输入接收消息的 Chat ID">
+                    </div>
+                    <button class="btn btn-primary" id="btn-save-config">保存配置</button>
+                    <span class="config-status" id="config-status"></span>
+                </div>
+            </section>
+
+            <!-- 钱包管理卡片 -->
+            <section class="card">
+                <div class="card-header">
+                    <h2>👛 监控钱包</h2>
+                    <button class="btn btn-primary" id="btn-add-wallet">+ 添加钱包</button>
+                </div>
+                <div class="card-body">
+                    <!-- 添加钱包表单 -->
+                    <div class="add-wallet-form" id="add-wallet-form" style="display: none;">
+                        <div class="form-row">
+                            <input type="text" id="new-wallet-address" placeholder="钱包地址 (0x...)" class="input-address">
+                            <input type="text" id="new-wallet-name" placeholder="备注名称" class="input-name">
+                            <button class="btn btn-success" id="btn-confirm-add">确认</button>
+                            <button class="btn btn-cancel" id="btn-cancel-add">取消</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 钱包列表 -->
+                    <div class="wallet-list" id="wallet-list">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 最近交易卡片 -->
+            <section class="card">
+                <div class="card-header">
+                    <h2>📜 最近交易</h2>
+                    <button class="btn btn-sm" id="btn-refresh-tx">刷新</button>
+                </div>
+                <div class="card-body">
+                    <div class="transaction-list" id="transaction-list">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 控制面板 -->
+            <section class="card control-panel">
+                <div class="card-header">
+                    <h2>⚙️ 控制面板</h2>
+                </div>
+                <div class="card-body">
+                    <div class="control-row">
+                        <div class="control-item">
+                            <span class="control-label">监控状态</span>
+                            <button class="btn btn-toggle" id="btn-toggle-monitor">
+                                启动监控
+                            </button>
+                        </div>
+                        <div class="control-item">
+                            <span class="control-label">最新区块</span>
+                            <span class="control-value" id="latest-block">-</span>
+                        </div>
+                        <div class="control-item">
+                            <span class="control-label">RPC 节点</span>
+                            <span class="control-value rpc-url" id="rpc-url">-</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 页脚 -->
+        <footer class="footer">
+            <p>Polymarket Smart Money Monitor v1.0</p>
+        </footer>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
