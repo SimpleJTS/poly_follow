@@ -5,11 +5,13 @@ import logging
 from flask import Blueprint, request, jsonify, render_template
 from app.models import (
     get_session, Wallet, Transaction, 
-    get_config, set_config
+    get_config, set_config,
+    CopyTradeConfig, CopyTradePosition, CopyTradeRecord
 )
 from app.services.monitor import get_monitor_service
 from app.services.telegram import get_telegram_service
 from app.services.blockchain import get_blockchain_service
+from app.services.copytrade import get_copytrade_service
 from web3 import Web3
 from datetime import datetime
 
@@ -280,3 +282,97 @@ def blockchain_status():
             "connected": False,
             "error": str(e),
         })
+
+
+# ==================== 跟单配置 API ====================
+
+@api.route('/copytrade/config', methods=['GET'])
+def get_copytrade_config():
+    """获取跟单配置"""
+    service = get_copytrade_service()
+    config = service.get_config()
+    return jsonify(config.to_dict())
+
+
+@api.route('/copytrade/config', methods=['POST'])
+def update_copytrade_config():
+    """更新跟单配置"""
+    data = request.get_json()
+    service = get_copytrade_service()
+    
+    try:
+        config = service.update_config(**data)
+        logger.info(f"跟单配置已更新: {data}")
+        return jsonify(config.to_dict())
+    except Exception as e:
+        logger.error(f"更新跟单配置失败: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@api.route('/copytrade/toggle', methods=['POST'])
+def toggle_copytrade():
+    """切换跟单开关"""
+    service = get_copytrade_service()
+    config = service.get_config()
+    new_state = not config.enabled
+    service.update_config(enabled=new_state)
+    
+    logger.info(f"跟单已{'启用' if new_state else '停用'}")
+    return jsonify({
+        "enabled": new_state,
+        "message": f"跟单已{'启用' if new_state else '停用'}"
+    })
+
+
+# ==================== 跟单持仓 API ====================
+
+@api.route('/copytrade/positions', methods=['GET'])
+def get_copytrade_positions():
+    """获取模拟持仓"""
+    service = get_copytrade_service()
+    positions = service.get_positions()
+    return jsonify(positions)
+
+
+@api.route('/copytrade/positions/close-all', methods=['POST'])
+def close_all_positions():
+    """一键平仓所有持仓"""
+    service = get_copytrade_service()
+    result = service.close_all_positions()
+    logger.info(f"一键平仓: 关闭 {result['closed_count']} 个持仓, 实现盈亏 ${result['total_realized_pnl']}")
+    return jsonify(result)
+
+
+# ==================== 跟单记录 API ====================
+
+@api.route('/copytrade/records', methods=['GET'])
+def get_copytrade_records():
+    """获取跟单记录"""
+    limit = request.args.get('limit', 50, type=int)
+    service = get_copytrade_service()
+    records = service.get_records(limit)
+    return jsonify(records)
+
+
+# ==================== 跟单统计 API ====================
+
+@api.route('/copytrade/stats', methods=['GET'])
+def get_copytrade_stats():
+    """获取跟单统计"""
+    service = get_copytrade_service()
+    stats = service.get_stats_summary()
+    return jsonify(stats)
+
+
+# ==================== 跟单重置 API ====================
+
+@api.route('/copytrade/reset', methods=['POST'])
+def reset_copytrade():
+    """重置模拟数据"""
+    service = get_copytrade_service()
+    success = service.reset_simulation()
+    
+    if success:
+        return jsonify({"message": "模拟数据已重置"})
+    else:
+        return jsonify({"error": "重置失败"}), 500
