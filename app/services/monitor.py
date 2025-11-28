@@ -14,6 +14,7 @@ from app.models import (
 from app.services.blockchain import get_blockchain_service
 from app.services.polymarket import get_polymarket_api
 from app.services.telegram import get_telegram_service
+from app.services.copytrade import get_copytrade_service
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ class MonitorService:
         self._blockchain = get_blockchain_service()
         self._polymarket = get_polymarket_api()
         self._telegram = get_telegram_service()
+        self._copytrade = get_copytrade_service()
     
     def is_running(self) -> bool:
         """检查监控是否运行中"""
@@ -174,10 +176,22 @@ class MonitorService:
         # 更新钱包活动时间
         self._update_wallet_activity(tx_data["wallet_address"])
         
+        # 获取钱包名称
+        wallet_name = self._get_wallet_name(tx_data["wallet_address"])
+        
+        # 执行跟单逻辑
+        try:
+            copy_record = self._copytrade.execute_simulation_trade(tx_data, wallet_name)
+            if copy_record:
+                if copy_record.status == "success":
+                    logger.info(f"模拟跟单成功: {copy_record.trade_type} {copy_record.copy_shares:.2f} 股")
+                elif copy_record.status == "skipped":
+                    logger.debug(f"跳过跟单: {copy_record.skip_reason}")
+        except Exception as e:
+            logger.error(f"跟单处理失败: {e}")
+        
         # 发送通知
         if self._telegram.is_configured():
-            wallet_name = self._get_wallet_name(tx_data["wallet_address"])
-            
             success = self._telegram.send_trade_notification(
                 wallet_name=wallet_name,
                 wallet_address=tx_data["wallet_address"],

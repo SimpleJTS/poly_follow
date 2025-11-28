@@ -25,6 +25,155 @@
 
         <!-- 主内容 -->
         <main class="main-content">
+            <!-- 跟单统计卡片 -->
+            <section class="card stats-card">
+                <div class="card-header">
+                    <h2>📊 模拟跟单统计</h2>
+                    <div class="header-actions">
+                        <span class="copy-trade-status" id="copy-trade-status">跟单已停用</span>
+                        <button class="btn btn-toggle-copy" id="btn-toggle-copy">启用跟单</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-label">可用余额</div>
+                            <div class="stat-value" id="stat-balance">$10,000.00</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">持仓成本</div>
+                            <div class="stat-value" id="stat-cost">$0.00</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">持仓价值</div>
+                            <div class="stat-value" id="stat-value">$0.00</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">未实现盈亏</div>
+                            <div class="stat-value pnl" id="stat-unrealized-pnl">$0.00 (0%)</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">已实现盈亏</div>
+                            <div class="stat-value pnl" id="stat-realized-pnl">$0.00</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">总盈亏</div>
+                            <div class="stat-value pnl total" id="stat-total-pnl">$0.00</div>
+                        </div>
+                    </div>
+                    <div class="stats-footer">
+                        <span>跟单次数: <strong id="stat-trades">0</strong></span>
+                        <span>成功: <strong id="stat-success">0</strong></span>
+                        <span>持仓数: <strong id="stat-positions">0</strong></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 跟单设置卡片 -->
+            <section class="card">
+                <div class="card-header">
+                    <h2>⚙️ 跟单设置</h2>
+                    <button class="btn btn-sm" id="btn-toggle-settings">展开 ▼</button>
+                </div>
+                <div class="card-body copytrade-settings" id="copytrade-settings" style="display: none;">
+                    <div class="settings-grid">
+                        <div class="form-group">
+                            <label for="copy-ratio">跟单比例 (%)</label>
+                            <input type="number" id="copy-ratio" value="10" min="1" max="100" step="1">
+                            <small>按聪明钱交易金额的百分比跟单</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="min-amount">单笔最小金额 (USDC)</label>
+                            <input type="number" id="min-amount" value="5" min="1" step="1">
+                            <small>低于此金额不跟单</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="max-amount">单笔最大金额 (USDC)</label>
+                            <input type="number" id="max-amount" value="100" min="1" step="1">
+                            <small>单笔跟单上限</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="max-position-market">单市场最大持仓 (USDC)</label>
+                            <input type="number" id="max-position-market" value="500" min="1" step="1">
+                            <small>单个市场最大投入</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="max-total-position">总持仓上限 (USDC)</label>
+                            <input type="number" id="max-total-position" value="2000" min="1" step="1">
+                            <small>所有持仓总和上限</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="simulation-balance">模拟初始余额 (USDC)</label>
+                            <input type="number" id="simulation-balance" value="10000" min="100" step="100">
+                            <small>模拟账户的初始资金</small>
+                        </div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="form-group">
+                            <label>跟单方向</label>
+                            <div class="radio-group">
+                                <label class="radio-item">
+                                    <input type="radio" name="copy-direction" value="all" checked> 买卖都跟
+                                </label>
+                                <label class="radio-item">
+                                    <input type="radio" name="copy-direction" value="buy_only"> 只跟买入
+                                </label>
+                                <label class="radio-item">
+                                    <input type="radio" name="copy-direction" value="sell_only"> 只跟卖出
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settings-row">
+                        <div class="form-group">
+                            <label>价格过滤</label>
+                            <div class="price-filter">
+                                <input type="number" id="min-price" value="0.05" min="0" max="1" step="0.01">
+                                <span>到</span>
+                                <input type="number" id="max-price" value="0.95" min="0" max="1" step="0.01">
+                                <small>只跟单价格在此范围内的交易</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settings-actions">
+                        <button class="btn btn-primary" id="btn-save-copytrade">保存跟单设置</button>
+                        <button class="btn btn-danger" id="btn-reset-simulation">重置模拟数据</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 模拟持仓卡片 -->
+            <section class="card">
+                <div class="card-header">
+                    <h2>💼 模拟持仓</h2>
+                    <button class="btn btn-sm btn-danger" id="btn-close-all">一键平仓</button>
+                </div>
+                <div class="card-body">
+                    <div class="position-list" id="position-list">
+                        <div class="empty-state">
+                            <div class="icon">💼</div>
+                            <p>暂无持仓</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 跟单记录卡片 -->
+            <section class="card">
+                <div class="card-header">
+                    <h2>📝 跟单记录</h2>
+                    <button class="btn btn-sm" id="btn-refresh-records">刷新</button>
+                </div>
+                <div class="card-body">
+                    <div class="record-list" id="record-list">
+                        <div class="empty-state">
+                            <div class="icon">📝</div>
+                            <p>暂无跟单记录</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Telegram 配置卡片 -->
             <section class="card">
                 <div class="card-header">

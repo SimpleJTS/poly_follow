@@ -7,6 +7,7 @@ const API_BASE = '/api';
 
 // 状态
 let isMonitorRunning = false;
+let isCopyTradeEnabled = false;
 
 // DOM 元素
 const elements = {
@@ -23,6 +24,12 @@ const elements = {
     latestBlock: document.getElementById('latest-block'),
     rpcUrl: document.getElementById('rpc-url'),
     btnToggleMonitor: document.getElementById('btn-toggle-monitor'),
+    // 跟单相关
+    copyTradeStatus: document.getElementById('copy-trade-status'),
+    btnToggleCopy: document.getElementById('btn-toggle-copy'),
+    copytradeSettings: document.getElementById('copytrade-settings'),
+    positionList: document.getElementById('position-list'),
+    recordList: document.getElementById('record-list'),
 };
 
 // ==================== 工具函数 ====================
@@ -444,6 +451,310 @@ async function toggleMonitor() {
     }
 }
 
+// ==================== 跟单功能 ====================
+
+/**
+ * 加载跟单配置
+ */
+async function loadCopyTradeConfig() {
+    try {
+        const config = await apiGet('/copytrade/config');
+        
+        isCopyTradeEnabled = config.enabled;
+        updateCopyTradeUI(config);
+        
+        // 填充表单
+        document.getElementById('copy-ratio').value = config.copy_ratio || 10;
+        document.getElementById('min-amount').value = config.min_amount || 5;
+        document.getElementById('max-amount').value = config.max_amount || 100;
+        document.getElementById('max-position-market').value = config.max_position_per_market || 500;
+        document.getElementById('max-total-position').value = config.max_total_position || 2000;
+        document.getElementById('simulation-balance').value = config.simulation_balance || 10000;
+        document.getElementById('min-price').value = config.min_price || 0.05;
+        document.getElementById('max-price').value = config.max_price || 0.95;
+        
+        // 设置方向单选框
+        const direction = config.copy_direction || 'all';
+        document.querySelector(`input[name="copy-direction"][value="${direction}"]`).checked = true;
+        
+    } catch (error) {
+        console.error('加载跟单配置失败:', error);
+    }
+}
+
+/**
+ * 更新跟单 UI 状态
+ */
+function updateCopyTradeUI(config) {
+    const enabled = config.enabled;
+    
+    elements.copyTradeStatus.textContent = enabled ? '跟单运行中' : '跟单已停用';
+    elements.copyTradeStatus.className = `copy-trade-status ${enabled ? 'active' : ''}`;
+    
+    elements.btnToggleCopy.textContent = enabled ? '停用跟单' : '启用跟单';
+    elements.btnToggleCopy.className = `btn btn-toggle-copy ${enabled ? 'active' : ''}`;
+}
+
+/**
+ * 切换跟单开关
+ */
+async function toggleCopyTrade() {
+    try {
+        const result = await apiPost('/copytrade/toggle');
+        isCopyTradeEnabled = result.enabled;
+        showToast(result.message, 'success');
+        loadCopyTradeConfig();
+        loadCopyTradeStats();
+    } catch (error) {
+        showToast('操作失败', 'error');
+    }
+}
+
+/**
+ * 保存跟单配置
+ */
+async function saveCopyTradeConfig() {
+    try {
+        const config = {
+            copy_ratio: parseFloat(document.getElementById('copy-ratio').value),
+            min_amount: parseFloat(document.getElementById('min-amount').value),
+            max_amount: parseFloat(document.getElementById('max-amount').value),
+            max_position_per_market: parseFloat(document.getElementById('max-position-market').value),
+            max_total_position: parseFloat(document.getElementById('max-total-position').value),
+            simulation_balance: parseFloat(document.getElementById('simulation-balance').value),
+            min_price: parseFloat(document.getElementById('min-price').value),
+            max_price: parseFloat(document.getElementById('max-price').value),
+            copy_direction: document.querySelector('input[name="copy-direction"]:checked').value,
+        };
+        
+        await apiPost('/copytrade/config', config);
+        showToast('跟单设置已保存', 'success');
+        loadCopyTradeStats();
+    } catch (error) {
+        showToast('保存失败: ' + error.message, 'error');
+    }
+}
+
+/**
+ * 加载跟单统计
+ */
+async function loadCopyTradeStats() {
+    try {
+        const stats = await apiGet('/copytrade/stats');
+        
+        // 更新统计显示
+        document.getElementById('stat-balance').textContent = `$${formatNumber(stats.available_balance)}`;
+        document.getElementById('stat-cost').textContent = `$${formatNumber(stats.total_cost)}`;
+        document.getElementById('stat-value').textContent = `$${formatNumber(stats.total_value)}`;
+        
+        // 未实现盈亏
+        const unrealizedEl = document.getElementById('stat-unrealized-pnl');
+        const unrealizedPnl = stats.total_unrealized_pnl;
+        const unrealizedPercent = stats.total_unrealized_pnl_percent;
+        unrealizedEl.textContent = `${unrealizedPnl >= 0 ? '+' : ''}$${formatNumber(unrealizedPnl)} (${unrealizedPercent >= 0 ? '+' : ''}${unrealizedPercent.toFixed(1)}%)`;
+        unrealizedEl.className = `stat-value pnl ${unrealizedPnl >= 0 ? 'positive' : 'negative'}`;
+        
+        // 已实现盈亏
+        const realizedEl = document.getElementById('stat-realized-pnl');
+        const realizedPnl = stats.total_realized_pnl;
+        realizedEl.textContent = `${realizedPnl >= 0 ? '+' : ''}$${formatNumber(realizedPnl)}`;
+        realizedEl.className = `stat-value pnl ${realizedPnl >= 0 ? 'positive' : 'negative'}`;
+        
+        // 总盈亏
+        const totalEl = document.getElementById('stat-total-pnl');
+        const totalPnl = stats.total_pnl;
+        totalEl.textContent = `${totalPnl >= 0 ? '+' : ''}$${formatNumber(totalPnl)}`;
+        totalEl.className = `stat-value pnl total ${totalPnl >= 0 ? 'positive' : 'negative'}`;
+        
+        // 底部统计
+        document.getElementById('stat-trades').textContent = stats.total_trades;
+        document.getElementById('stat-success').textContent = stats.successful_trades;
+        document.getElementById('stat-positions').textContent = stats.position_count;
+        
+    } catch (error) {
+        console.error('加载跟单统计失败:', error);
+    }
+}
+
+/**
+ * 格式化数字
+ */
+function formatNumber(num) {
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/**
+ * 加载持仓列表
+ */
+async function loadPositions() {
+    try {
+        const positions = await apiGet('/copytrade/positions');
+        renderPositions(positions);
+    } catch (error) {
+        console.error('加载持仓失败:', error);
+    }
+}
+
+/**
+ * 渲染持仓列表
+ */
+function renderPositions(positions) {
+    if (positions.length === 0) {
+        elements.positionList.innerHTML = `
+            <div class="empty-state">
+                <div class="icon">💼</div>
+                <p>暂无持仓</p>
+            </div>
+        `;
+        return;
+    }
+    
+    elements.positionList.innerHTML = positions.map(pos => {
+        const isYes = pos.outcome === 'Yes';
+        const pnlClass = pos.unrealized_pnl >= 0 ? 'positive' : 'negative';
+        const pnlSign = pos.unrealized_pnl >= 0 ? '+' : '';
+        
+        return `
+            <div class="position-item">
+                <div class="position-info">
+                    <div class="position-market">
+                        ${escapeHtml(pos.market_name || 'Unknown Market')}
+                        <span class="position-outcome ${isYes ? 'yes' : 'no'}">${pos.outcome || '-'}</span>
+                    </div>
+                    <div class="position-details">
+                        <span>${pos.shares.toFixed(2)} 股</span>
+                        <span>成本: $${pos.avg_price.toFixed(4)}</span>
+                        <span>现价: $${pos.current_price.toFixed(4)}</span>
+                    </div>
+                </div>
+                <div class="position-pnl">
+                    <div class="position-value">$${formatNumber(pos.current_value)}</div>
+                    <div class="position-change ${pnlClass}">
+                        ${pnlSign}$${formatNumber(pos.unrealized_pnl)} (${pnlSign}${pos.unrealized_pnl_percent.toFixed(1)}%)
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * 加载跟单记录
+ */
+async function loadCopyTradeRecords() {
+    try {
+        const records = await apiGet('/copytrade/records?limit=30');
+        renderRecords(records);
+    } catch (error) {
+        console.error('加载跟单记录失败:', error);
+    }
+}
+
+/**
+ * 渲染跟单记录
+ */
+function renderRecords(records) {
+    if (records.length === 0) {
+        elements.recordList.innerHTML = `
+            <div class="empty-state">
+                <div class="icon">📝</div>
+                <p>暂无跟单记录</p>
+            </div>
+        `;
+        return;
+    }
+    
+    elements.recordList.innerHTML = records.map(record => {
+        const isBuy = record.trade_type === 'BUY';
+        const statusEmoji = record.status === 'success' ? '✅' : (record.status === 'skipped' ? '⏭️' : '❌');
+        const statusClass = record.status;
+        
+        return `
+            <div class="record-item">
+                <div class="record-status ${statusClass}">
+                    ${statusEmoji}
+                </div>
+                <div class="record-info">
+                    <div class="record-market" title="${escapeHtml(record.market_name || 'Unknown')}">
+                        ${escapeHtml(record.market_name || 'Unknown Market')}
+                    </div>
+                    <div class="record-details">
+                        <span>${isBuy ? '🟢 买入' : '🔴 卖出'}</span>
+                        <span>${record.outcome || '-'}</span>
+                        ${record.status === 'success' ? `<span>${(record.copy_shares || 0).toFixed(2)} 股 @ $${(record.copy_price || 0).toFixed(4)}</span>` : ''}
+                    </div>
+                    <div class="record-source">
+                        跟单: ${escapeHtml(record.source_wallet_name || formatAddress(record.source_wallet_address))}
+                        ${record.status === 'skipped' ? `<span class="record-reason">- ${record.skip_reason}</span>` : ''}
+                    </div>
+                </div>
+                <div class="record-meta">
+                    ${record.status === 'success' ? `
+                        <div class="record-amount ${isBuy ? 'buy' : 'sell'}">
+                            ${isBuy ? '-' : '+'}$${formatNumber(record.copy_amount || 0)}
+                        </div>
+                    ` : ''}
+                    <div class="record-time">${formatTime(record.created_at)}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * 一键平仓
+ */
+async function closeAllPositions() {
+    if (!confirm('确定要平仓所有持仓吗？这将卖出所有模拟持仓并结算盈亏。')) {
+        return;
+    }
+    
+    try {
+        const result = await apiPost('/copytrade/positions/close-all');
+        showToast(`已平仓 ${result.closed_count} 个持仓，实现盈亏: $${formatNumber(result.total_realized_pnl)}`, 'success');
+        loadPositions();
+        loadCopyTradeStats();
+        loadCopyTradeRecords();
+    } catch (error) {
+        showToast('平仓失败', 'error');
+    }
+}
+
+/**
+ * 重置模拟数据
+ */
+async function resetSimulation() {
+    if (!confirm('确定要重置所有模拟数据吗？这将清空所有持仓和跟单记录！')) {
+        return;
+    }
+    
+    try {
+        await apiPost('/copytrade/reset');
+        showToast('模拟数据已重置', 'success');
+        loadPositions();
+        loadCopyTradeStats();
+        loadCopyTradeRecords();
+    } catch (error) {
+        showToast('重置失败', 'error');
+    }
+}
+
+/**
+ * 切换设置面板显示
+ */
+function toggleSettings() {
+    const settings = elements.copytradeSettings;
+    const btn = document.getElementById('btn-toggle-settings');
+    
+    if (settings.style.display === 'none') {
+        settings.style.display = 'block';
+        btn.textContent = '收起 ▲';
+    } else {
+        settings.style.display = 'none';
+        btn.textContent = '展开 ▼';
+    }
+}
+
 // ==================== 事件绑定 ====================
 
 function bindEvents() {
@@ -461,6 +772,14 @@ function bindEvents() {
     
     // 监控控制
     elements.btnToggleMonitor.addEventListener('click', toggleMonitor);
+    
+    // 跟单相关
+    elements.btnToggleCopy.addEventListener('click', toggleCopyTrade);
+    document.getElementById('btn-toggle-settings').addEventListener('click', toggleSettings);
+    document.getElementById('btn-save-copytrade').addEventListener('click', saveCopyTradeConfig);
+    document.getElementById('btn-reset-simulation').addEventListener('click', resetSimulation);
+    document.getElementById('btn-close-all').addEventListener('click', closeAllPositions);
+    document.getElementById('btn-refresh-records').addEventListener('click', loadCopyTradeRecords);
     
     // 回车提交
     elements.newWalletAddress.addEventListener('keypress', (e) => {
@@ -482,11 +801,18 @@ async function init() {
         loadConfig(),
         loadWallets(),
         loadTransactions(),
+        loadCopyTradeConfig(),
+        loadCopyTradeStats(),
+        loadPositions(),
+        loadCopyTradeRecords(),
     ]);
     
     // 定时刷新
     setInterval(loadStatus, 5000);
     setInterval(loadTransactions, 30000);
+    setInterval(loadCopyTradeStats, 10000);
+    setInterval(loadPositions, 15000);
+    setInterval(loadCopyTradeRecords, 20000);
 }
 
 // 启动
